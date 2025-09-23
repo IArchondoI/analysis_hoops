@@ -12,10 +12,15 @@ dependencies = [
     "ipykernel (>=6.30.1,<7.0.0)",
     "pytesseract (>=0.3.13,<0.4.0)",
     "pillow (>=11.3.0,<12.0.0)",
-    "opencv-python (>=4.12.0.88,<5.0.0.0)"
+    "opencv-python (>=4.12.0.88,<5.0.0.0)",
+    "easyocr (>=1.7.2,<2.0.0)"
 ]
 
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.group.dev.dependencies]
+notebook = "^7.4.5"
+

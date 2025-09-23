@@ -1,69 +1,131 @@
+
 import pandas as pd
 import pytesseract
-from PIL import Image
 import re
 from pathlib import Path
 import cv2
 
-def get_files_from_folder(input_path:Path)->list[Path]:
-    """Get all .png files in a given folder, sorted alphabetically."""
-    return sorted([f for f in input_path.glob('*.png') if f.is_file()])
 
-def preprocess_image(img_path:Path):
+def get_files_from_folder(input_path: Path) -> list[Path]:
+    """Get all .png files in a given folder, sorted alphabetically."""
+    return sorted([f for f in input_path.glob("*.png") if f.is_file()])
+
+
+def preprocess_image_with_cv2(img_path: Path):
     """Preprocess image."""
     # Load with OpenCV
-    img = cv2.imread(img_path)
+    img = cv2.imread(str(img_path))
+    if img is None:
+        raise FileNotFoundError(f"Image not found or cannot be read: {img_path}")
 
     # Convert to grayscale
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
     # Optional: dilate to make text bolder
-    # kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1,1))
-    # thresh = cv2.dilate(thresh, kernel, iterations=1)
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 1))
+    thresh = cv2.dilate(gray, kernel, iterations=1)
 
     # Increase contrast & threshold
     return cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
 
 
-def process_image(img_path:Path)->pd.DataFrame:
-    """Process a given image to extract results."""
 
-    preprocessed_image = preprocess_image(img_path)
+def process_image_with_pytesseract(image_path: Path) -> pd.DataFrame:
+    """Process image with pytesseract."""
+    preprocessed_image = preprocess_image_with_cv2(image_path)
 
     # OCR extraction
-    custom_oem_psm_config = r'--oem 3 --psm 6'
-    text = pytesseract.image_to_string(preprocessed_image,config=custom_oem_psm_config)
+    custom_config = r"--oem 3 --psm 6"
+    ocr_data = pytesseract.image_to_data(
+        preprocessed_image,
+        config=custom_config,
+        output_type=pytesseract.Output.DATAFRAME,
+    )
 
-    # Split lines, clean, and keep rows that look like data
-    lines = [line.strip() for line in text.split("\n") if line.strip()]
+    # Clean
+    ocr_data = ocr_data[ocr_data["text"].notna()].reset_index(drop=True)
 
-    # Prepare list for dataframe rows
+    # Group by line number
+    lines = (
+        ocr_data.groupby("line_num")["text"].apply(lambda x: " ".join(x)).tolist()
+    )
+
+    # Parse lines into structured rows
     rows = []
     position = 1
-
     for line in lines:
-        # Match pattern like: Team (User) Record Average Streak
-        match = re.match(r"(.+?)\s\((.+?)\)\s+(\d+)-(\d+)\s+([\d\.]+)", line)
-        if match:
-            team, user, w, l, avg = match.groups()
-            rows.append([position, team.strip(), user.strip(), int(w), int(l), float(avg)])
+        if not line.startswith("Team"):
+            line = (
+                line.replace("{", "(")
+                .replace("}", ")")
+                .replace("((", "(")
+                .replace("))", ")")
+                .strip()
+            )
+            if "." in line:
+                cut_idx = line.rfind(".")
+                # include one digit after the dot at least
+                line = line[: cut_idx + 2]
+            else:
+                raise ValueError("No dot")
+            # Extract user
+            user_match = re.search(r"\(([^)]+)\)", line)
+            user = user_match.group(1).strip() if user_match else ""
+
+            # --- Team ---
+            if "(" not in line:
+                raise ValueError("No user in line")
+            team = line.split("(")[0].strip() if "(" in line else line
+
+            # --- Record ---
+            rec_match = re.search(r"(\d{1,3})\s*-\s*(\d{1,3})", line)
+            if not rec_match:
+                raise ValueError("No record in line")
+            w, l = int(rec_match.group(1)), int(rec_match.group(2))
+
+            # --- Average ---
+            avg_match = re.search(r"(\d{1,3}(?:[.,]\d+)?)(?!.*\d)", line)
+            if not avg_match:
+                raise ValueError("No average in line")
+            avg = float(avg_match.group(1).replace(",", "."))
+
+            # Append row
+            rows.append([position, team, user, w, l, avg])
             position += 1
 
-    # Create DataFrame
-    df = pd.DataFrame(rows, columns=["Position", "Team", "User", "W", "L", "Average"])
-    df["Season"] = str(img_path).split("/")[-1].replace(".png","")
+    df = pd.DataFrame(
+        rows, columns=["Position", "Team", "User", "W", "L", "Average"]
+    )
+    df["Season"] = str(image_path).split("/")[-1].replace(".png", "")
     return df
 
-def extract_positions(main_folder:Path)->pd.DataFrame:
+
+def clean_table(final_table: pd.DataFrame) -> pd.DataFrame:
+    """Clean table."""
+    final_table["User"] = final_table["User"].apply(
+        lambda x: "IArchondo" if "archondo" in x.lower() else x
+    )
+    final_table["User"] = final_table["User"].apply(
+        lambda x: x.replace(" +1", "").strip()
+    )
+    final_table["User"] = final_table["User"].apply(
+        lambda x: x.replace("villugo", "villuqo")
+        .replace("Perezlll", "PerezIII")
+        .replace("marttinelli13", "jbena14")
+        .replace("A_Andres", "A_andres")
+        .strip()
+    )
+    return final_table
+
+
+def extract_positions(main_folder: Path) -> pd.DataFrame:
     """Extract positions from all tables and concatenate."""
     table_files = get_files_from_folder(main_folder)
-    return pd.concat([extract_positions(image) for image in table_files])
+    final_table = pd.concat(
+        [process_image_with_pytesseract(image) for image in table_files]
+    )
+    return clean_table(final_table)
 
 
 main_folder = Path("Input/poc_screenshots/")
-
-# extract_positions(main_folder)
-
-table_files = get_files_from_folder(main_folder)
-
-process_image(table_files[1])
+out = extract_positions(main_folder)
