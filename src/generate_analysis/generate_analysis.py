@@ -31,10 +31,15 @@ def plot_avg_wins_per_pick(df: pd.DataFrame, out_path: str = "Output/avg_wins_pe
     """Plot average number of wins per draft order as a bar plot."""
     avg_wins_per_pick = df.groupby("Pick")["W"].mean().reset_index()
     plt.figure(figsize=(10, 6))
-    sns.barplot(data=avg_wins_per_pick, x="Pick", y="W", palette="viridis")
-    plt.title("Average Number of Wins per Draft Order")
-    plt.xlabel("Draft Order (Pick Number)")
-    plt.ylabel("Average Wins")
+    ax = sns.barplot(data=avg_wins_per_pick, x="Pick", y="W", color="#4C72B0")
+    # Remove box (spines)
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    # Bold and enlarge title and labels
+    ax.set_title("Average Number of Wins per Draft Order", fontsize=20, fontweight="bold")
+    ax.set_xlabel("Draft Order (Pick Number)", fontsize=16, fontweight="bold")
+    ax.set_ylabel("Average Wins", fontsize=16, fontweight="bold")
+    ax.tick_params(axis='both', labelsize=13)
     plt.tight_layout()
     plt.savefig(out_path)
     plt.close()
@@ -43,11 +48,38 @@ def plot_avg_wins_per_pick(df: pd.DataFrame, out_path: str = "Output/avg_wins_pe
 def plot_wins_vs_pick_scatter(df: pd.DataFrame, out_path: str = "Output/wins_vs_pick_scatter.png") -> None:
     """Plot scatter of wins vs draft order, colored by season."""
     plt.figure(figsize=(10, 6))
-    sns.scatterplot(data=df, x="Pick", y="W", hue="Season", palette="tab10", s=80, edgecolor="k")
-    plt.title("Wins by Draft Order (Disaggregated by Season)")
-    plt.xlabel("Draft Order (Pick Number)")
-    plt.ylabel("Wins")
-    plt.legend(title="Season", bbox_to_anchor=(1.05, 1), loc="upper left")
+    ax = plt.gca()
+    # Draw vertical dashed lines for each draft order
+    unique_picks = sorted(df["Pick"].unique())
+    for pick in unique_picks:
+        ax.axvline(pick, color="#888", linestyle="--", linewidth=1, zorder=0)
+    # Scatter plot without black border
+    scatter = sns.scatterplot(data=df, x="Pick", y="W", hue="Season", palette="tab10", s=80, edgecolor=None, ax=ax)
+    # Add average star for each draft order
+    avg_wins_per_pick = df.groupby("Pick")["W"].mean().reset_index()
+    ax.scatter(avg_wins_per_pick["Pick"], avg_wins_per_pick["W"], marker="*", s=250, color="gold", edgecolor="black", zorder=5, label="Average")
+    # Remove box (spines)
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    # Set ticks for each draft order
+    ax.set_xticks(unique_picks)
+    # Bold and enlarge title and labels
+    ax.set_title("Wins by Draft Order (Disaggregated by Season)", fontsize=20, fontweight="bold")
+    ax.set_xlabel("Draft Order (Pick Number)", fontsize=16, fontweight="bold")
+    ax.set_ylabel("Wins", fontsize=16, fontweight="bold")
+    ax.tick_params(axis='both', labelsize=13)
+    # Adjust legend
+    handles, labels = ax.get_legend_handles_labels()
+    # Remove duplicate 'Average' if present
+    seen = set()
+    new_handles = []
+    new_labels = []
+    for h, l in zip(handles, labels):
+        if l not in seen:
+            new_handles.append(h)
+            new_labels.append(l)
+            seen.add(l)
+    ax.legend(new_handles, new_labels, title="Season", bbox_to_anchor=(1.05, 1), loc="upper left")
     plt.tight_layout()
     plt.savefig(out_path)
     plt.close()
