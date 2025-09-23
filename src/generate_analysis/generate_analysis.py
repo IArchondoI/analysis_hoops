@@ -114,9 +114,9 @@ def plot_position_vs_pick_scatter(df: pd.DataFrame, out_path: str = "Output/posi
         ax.axvline(pick, color="#888", linestyle="--", linewidth=1, zorder=0)
     # Scatter plot without black border
     scatter = sns.scatterplot(data=df, x="Pick", y="Position", hue="Season", palette="tab10", s=80, edgecolor=None, ax=ax)
-    # Add average star for each draft order (without dark outline)
+    # Add average star for each draft order (with dark outline)
     avg_position_per_pick = df.groupby("Pick")["Position"].mean().reset_index()
-    ax.scatter(avg_position_per_pick["Pick"], avg_position_per_pick["Position"], marker="*", s=150, color="gold", zorder=5, label="Average")
+    ax.scatter(avg_position_per_pick["Pick"], avg_position_per_pick["Position"], marker="*", s=150, color="gold", edgecolor="black", zorder=5, label="Average")
     # Set ticks for each draft order and all positions
     ax.set_xticks(unique_picks)
     ax.set_yticks(range(1, int(df["Position"].max()) + 1))
@@ -145,6 +145,70 @@ def plot_position_vs_pick_scatter(df: pd.DataFrame, out_path: str = "Output/posi
     plt.close()
 
 
+def plot_avg_draft_position_per_user(df: pd.DataFrame, out_path: str = "Output/avg_draft_position_per_user.png") -> None:
+    """Plot average draft position per user as a bar plot."""
+    avg_draft_position_per_user = df.groupby("User")["Pick"].mean().reset_index()
+    avg_draft_position_per_user = avg_draft_position_per_user.sort_values(by="Pick")
+    plt.figure(figsize=(10, 6))
+    ax = sns.barplot(data=avg_draft_position_per_user, x="User", y="Pick", color="#4C72B0")
+    # Remove box (spines)
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    # Bold and enlarge title and labels
+    ax.set_title("Average Draft Position per User", fontsize=20, fontweight="bold")
+    ax.set_xlabel("User", fontsize=16, fontweight="bold")
+    ax.set_ylabel("Average Draft Position", fontsize=16, fontweight="bold")
+    ax.tick_params(axis='both', labelsize=13)
+    plt.xticks(rotation=90, ha="center")
+    plt.tight_layout()
+    plt.savefig(out_path)
+    plt.close()
+
+
+def plot_draft_positions_per_user(df: pd.DataFrame, out_path: str = "Output/draft_positions_per_user.png") -> None:
+    """Plot draft positions per user, ordered by average draft position."""
+    avg_draft_position_per_user = df.groupby("User")["Pick"].mean().reset_index()
+    avg_draft_position_per_user = avg_draft_position_per_user.sort_values(by="Pick")
+    user_order = avg_draft_position_per_user["User"].tolist()
+    df["User"] = pd.Categorical(df["User"], categories=user_order, ordered=True)
+    plt.figure(figsize=(10, 6))
+    ax = plt.gca()
+    # Draw vertical dashed lines for each user
+    unique_users = user_order
+    for user in unique_users:
+        ax.axvline(user_order.index(user), color="#888", linestyle="--", linewidth=1, zorder=0)
+    # Scatter plot without black border
+    scatter = sns.stripplot(data=df, x="User", y="Pick", hue="Season", palette="tab10", size=8, jitter=True, ax=ax)
+    # Add average star for each user (with dark outline)
+    ax.scatter(avg_draft_position_per_user["User"], avg_draft_position_per_user["Pick"], marker="*", s=150, color="gold", edgecolor="black", zorder=5, label="Media")
+    # Set ticks for each draft position
+    ax.set_yticks(range(1, int(df["Pick"].max()) + 1))
+    # Remove box (spines)
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    # Bold and enlarge title and labels
+    ax.set_title("¿Es el bol injusto?", fontsize=20, fontweight="bold")
+    ax.set_xlabel("Usuario", fontsize=16, fontweight="bold")
+    ax.set_ylabel("Posición de Pickeo", fontsize=16, fontweight="bold")
+    ax.tick_params(axis='both', labelsize=13)
+    plt.xticks(rotation=90, ha="center")
+    # Adjust legend
+    handles, labels = ax.get_legend_handles_labels()
+    # Remove duplicate 'Average' if present
+    seen = set()
+    new_handles = []
+    new_labels = []
+    for h, l in zip(handles, labels):
+        if l not in seen:
+            new_handles.append(h)
+            new_labels.append(l)
+            seen.add(l)
+    ax.legend(new_handles, new_labels, title="", bbox_to_anchor=(1.05, 1), loc="upper left")
+    plt.tight_layout()
+    plt.savefig(out_path)
+    plt.close()
+
+# Update the main function to include the new plots
 def main():
     picks = load_and_clean_picks()
     pos = load_and_clean_positions()
@@ -154,6 +218,8 @@ def main():
     plot_wins_vs_pick_scatter(df)
     plot_avg_position_per_pick(df)
     plot_position_vs_pick_scatter(df)
+    plot_avg_draft_position_per_user(df)
+    plot_draft_positions_per_user(df)
 
 # if __name__ == "__main__":
 #     main()
@@ -167,6 +233,8 @@ plot_avg_wins_per_pick(df)
 plot_wins_vs_pick_scatter(df)
 plot_avg_position_per_pick(df)
 plot_position_vs_pick_scatter(df)
+plot_avg_draft_position_per_user(picks)
+plot_draft_positions_per_user(picks)
 
 
 
