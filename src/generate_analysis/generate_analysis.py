@@ -1,4 +1,3 @@
-
 import pandas as pd
 from pathlib import Path
 import matplotlib.pyplot as plt
@@ -85,6 +84,67 @@ def plot_wins_vs_pick_scatter(df: pd.DataFrame, out_path: str = "Output/wins_vs_
     plt.close()
 
 
+def plot_avg_position_per_pick(df: pd.DataFrame, out_path: str = "Output/avg_position_per_pick.png") -> None:
+    """Plot average league position per draft order as a bar plot."""
+    avg_position_per_pick = df.groupby("Pick")["Position"].mean().reset_index()
+    plt.figure(figsize=(10, 6))
+    ax = sns.barplot(data=avg_position_per_pick, x="Pick", y="Position", color="#4C72B0")
+    # Remove box (spines)
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    # Bold and enlarge title and labels
+    ax.set_title("Average League Position per Draft Order", fontsize=20, fontweight="bold")
+    ax.set_xlabel("Draft Order (Pick Number)", fontsize=16, fontweight="bold")
+    ax.set_ylabel("Average League Position", fontsize=16, fontweight="bold")
+    ax.tick_params(axis='both', labelsize=13)
+    plt.tight_layout()
+    plt.savefig(out_path)
+    plt.close()
+
+
+def plot_position_vs_pick_scatter(df: pd.DataFrame, out_path: str = "Output/position_vs_pick_scatter.png") -> None:
+    """Plot scatter of league position vs draft order, colored by season."""
+    plt.figure(figsize=(10, 6))
+    ax = plt.gca()
+    # Shade area below 8.5 for playoff qualification with light green color
+    ax.axhspan(0, 8.5, color="lightgreen", alpha=0.5, zorder=0, label="Playoff Zone")
+    # Draw vertical dashed lines for each draft order
+    unique_picks = sorted(df["Pick"].unique())
+    for pick in unique_picks:
+        ax.axvline(pick, color="#888", linestyle="--", linewidth=1, zorder=0)
+    # Scatter plot without black border
+    scatter = sns.scatterplot(data=df, x="Pick", y="Position", hue="Season", palette="tab10", s=80, edgecolor=None, ax=ax)
+    # Add average star for each draft order (without dark outline)
+    avg_position_per_pick = df.groupby("Pick")["Position"].mean().reset_index()
+    ax.scatter(avg_position_per_pick["Pick"], avg_position_per_pick["Position"], marker="*", s=150, color="gold", zorder=5, label="Average")
+    # Set ticks for each draft order and all positions
+    ax.set_xticks(unique_picks)
+    ax.set_yticks(range(1, int(df["Position"].max()) + 1))
+    # Remove box (spines)
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    # Bold and enlarge title and labels
+    ax.set_title("League Position by Draft Order (Disaggregated by Season)", fontsize=20, fontweight="bold")
+    ax.set_xlabel("Draft Order (Pick Number)", fontsize=16, fontweight="bold")
+    ax.set_ylabel("League Position", fontsize=16, fontweight="bold")
+    ax.tick_params(axis='both', labelsize=13)
+    # Adjust legend
+    handles, labels = ax.get_legend_handles_labels()
+    # Remove duplicate 'Average' if present
+    seen = set()
+    new_handles = []
+    new_labels = []
+    for h, l in zip(handles, labels):
+        if l not in seen:
+            new_handles.append(h)
+            new_labels.append(l)
+            seen.add(l)
+    ax.legend(new_handles, new_labels, title="Season", bbox_to_anchor=(1.05, 1), loc="upper left")
+    plt.tight_layout()
+    plt.savefig(out_path)
+    plt.close()
+
+
 def main():
     picks = load_and_clean_picks()
     pos = load_and_clean_positions()
@@ -92,6 +152,8 @@ def main():
     df = pd.merge(picks, pos, on=["Season", "User"], how="inner")
     plot_avg_wins_per_pick(df)
     plot_wins_vs_pick_scatter(df)
+    plot_avg_position_per_pick(df)
+    plot_position_vs_pick_scatter(df)
 
 # if __name__ == "__main__":
 #     main()
@@ -103,6 +165,8 @@ pos = load_and_clean_positions()
 df = pd.merge(picks, pos, on=["Season", "User"], how="inner")
 plot_avg_wins_per_pick(df)
 plot_wins_vs_pick_scatter(df)
+plot_avg_position_per_pick(df)
+plot_position_vs_pick_scatter(df)
 
 
 
