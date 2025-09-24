@@ -2,6 +2,8 @@ import pandas as pd
 from pathlib import Path
 import matplotlib.pyplot as plt
 import seaborn as sns
+import statsmodels.api as sm
+import re
 
 
 def load_and_clean_picks() -> pd.DataFrame:
@@ -371,8 +373,53 @@ def plot_position_heatmap(df: pd.DataFrame, out_path: str = "Output/position_hea
     plt.savefig(out_path)
     plt.close()
 
+def clean_variable(name: str) -> str:
+    """Clean variable name."""
+    return re.sub(
+        r"C\((User|Pick), Sum\)\[S\.([A-Za-z0-9_ ]+)\]",
+        lambda m: m.group(2) if m.group(1) == "User" else f"pick_{m.group(2)}",
+        name
+    )
 
-# Update the main function to include the new table generation
+def postprocess_results_tables(results_df:pd.DataFrame) -> pd.DataFrame:
+    """Postprocess regression results tables to clean variable names and round values."""
+    # Clean variable names
+    results_df["Variable"] = results_df["Variable"].apply(clean_variable)
+    
+    # Round numeric columns to one decimal place
+    results_df["Coefficient"] = results_df["Coefficient"].round(1)
+    results_df["P-Value"] = results_df["P-Value"].round(1)
+
+    return results_df
+
+def perform_linear_regression(df: pd.DataFrame, out_path: str = "Output/") -> None:
+    """Perform linear regression with deviation coding and export results."""
+    # Define the formula for deviation coding
+    formula = "W ~ C(User, Sum) + C(Pick, Sum)"
+
+    # Fit the model using statsmodels' formula API
+    model = sm.OLS.from_formula(formula, data=df).fit()
+
+    # Create a DataFrame for coefficients and significance
+    results_df = pd.DataFrame({
+        "Variable": model.params.index,
+        "Coefficient": model.params.values,
+        "P-Value": model.pvalues.values,
+        "Significant": model.pvalues < 0.05
+    })
+
+    # Sort by coefficient (worst to best)
+    results_df = results_df.sort_values(by="Coefficient")
+
+    # Save the processed results
+    clean_results = postprocess_results_tables(results_df)
+    clean_results.to_csv(Path(out_path) / "regression_results.csv", index=False)
+
+    # Filter for significant variables, sort by coefficient (best to worst), and save
+    significant_results = clean_results[clean_results["Significant"]].sort_values(by="Coefficient", ascending=False)
+    significant_results.to_csv(Path(out_path) / "significant_results.csv", index=False)
+
+
 def run_analysis_pipeline():
     """Load and execute all analyses."""
     picks = load_and_clean_picks()
@@ -389,5 +436,6 @@ def run_analysis_pipeline():
     plot_victories_per_user_scatter(df)
     generate_user_summary_table(df)
     plot_position_heatmap(df)  # New heatmap function
+    perform_linear_regression(df)  # New regression analysis function
 
 
