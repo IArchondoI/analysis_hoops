@@ -208,8 +208,106 @@ def plot_draft_positions_per_user(df: pd.DataFrame, out_path: str = "Output/draf
     plt.savefig(out_path)
     plt.close()
 
-# Update the main function to include the new plots
-def main():
+
+def plot_avg_victories_per_user(df: pd.DataFrame, out_path: str = "Output/avg_victories_per_user.png") -> None:
+    """Plot average number of victories per user as a bar plot."""
+    avg_victories_per_user = df.groupby("User")["W"].mean().reset_index()
+    avg_victories_per_user = avg_victories_per_user.sort_values(by="W", ascending=False)
+    plt.figure(figsize=(10, 6))
+    ax = sns.barplot(data=avg_victories_per_user, x="User", y="W", color="#4C72B0")
+    # Remove box (spines)
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    # Bold and enlarge title and labels
+    ax.set_title("Average Victories per User", fontsize=20, fontweight="bold")
+    ax.set_xlabel("User", fontsize=16, fontweight="bold")
+    ax.set_ylabel("Average Victories", fontsize=16, fontweight="bold")
+    ax.tick_params(axis='both', labelsize=13)
+    plt.xticks(rotation=90, ha="center")
+    plt.tight_layout()
+    plt.savefig(out_path)
+    plt.close()
+
+
+def plot_victories_per_user_scatter(df: pd.DataFrame, out_path: str = "Output/victories_per_user_scatter.png") -> None:
+    """Plot scatter of victories per user, with vertical lines and average stars."""
+    avg_victories_per_user = df.groupby("User")["W"].mean().reset_index()
+    avg_victories_per_user = avg_victories_per_user.sort_values(by="W", ascending=False)
+    user_order = avg_victories_per_user["User"].tolist()
+    df["User"] = pd.Categorical(df["User"], categories=user_order, ordered=True)
+    plt.figure(figsize=(10, 6))
+    ax = plt.gca()
+    # Draw vertical dashed lines for each user
+    for user in user_order:
+        ax.axvline(user_order.index(user), color="#888", linestyle="--", linewidth=1, zorder=0)
+    # Scatter plot without black border
+    scatter = sns.stripplot(data=df, x="User", y="W", hue="Season", palette="tab10", size=8, jitter=True, ax=ax)
+    # Add average star for each user (with dark outline)
+    ax.scatter(avg_victories_per_user["User"], avg_victories_per_user["W"], marker="*", s=150, color="gold", edgecolor="black", zorder=5, label="Average")
+    # Remove box (spines)
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    # Bold and enlarge title and labels
+    ax.set_title("Victories per User (Disaggregated by Season)", fontsize=20, fontweight="bold")
+    ax.set_xlabel("User", fontsize=16, fontweight="bold")
+    ax.set_ylabel("Victories", fontsize=16, fontweight="bold")
+    ax.tick_params(axis='both', labelsize=13)
+    plt.xticks(rotation=90, ha="center")
+    # Adjust legend
+    handles, labels = ax.get_legend_handles_labels()
+    # Remove duplicate 'Average' if present
+    seen = set()
+    new_handles = []
+    new_labels = []
+    for h, l in zip(handles, labels):
+        if l not in seen:
+            new_handles.append(h)
+            new_labels.append(l)
+            seen.add(l)
+    ax.legend(new_handles, new_labels, title="Season", bbox_to_anchor=(1.05, 1), loc="upper left")
+    plt.tight_layout()
+    plt.savefig(out_path)
+    plt.close()
+
+
+def generate_user_summary_table(df: pd.DataFrame, out_path: str = "Output/user_summary_table.csv") -> None:
+    """Generate a summary table for each user and export as CSV."""
+    # Ensure numeric columns are properly cast
+    df["W"] = pd.to_numeric(df["W"], errors="coerce")
+    df["L"] = pd.to_numeric(df["L"], errors="coerce")
+    df["Position"] = pd.to_numeric(df["Position"], errors="coerce")
+    df["Average"] = pd.to_numeric(df["Average"], errors="coerce")
+
+    # Precompute win percentage for each row
+    df["Win_Percentage"] = df["W"] / (df["W"] + df["L"]) * 100
+
+    summary = (
+        df.groupby("User", observed=False)  # Explicitly set observed=False to silence FutureWarning
+        .agg(
+            times_in_playoffs=("Position", lambda x: (x <= 8).sum()),
+            times_played=("Season", "count"),
+            win_percentage=("Win_Percentage", "mean"),
+            total_wins=("W", "sum"),
+            total_losses=("L", "sum"),
+            average_score=("Average", "mean"),
+            highest_score=("Average", "max"),
+            lowest_score=("Average", "min"),
+            highest_position=("Position", "min"),
+            lowest_position=("Position", "max"),
+        )
+        .reset_index()
+        .sort_values(by="win_percentage", ascending=False)  # Sort by Win Percentage
+    )
+
+    # Round win_percentage and average_score to 1 decimal place
+    summary["win_percentage"] = summary["win_percentage"].round(1)
+    summary["average_score"] = summary["average_score"].round(1)
+
+    summary.to_csv(out_path, index=False)
+
+# Update the main function to include the new table generation
+def run_analysis_pipeline():
+    """Load and execute all analyses."""
     picks = load_and_clean_picks()
     pos = load_and_clean_positions()
     # Merge picks and positions on Season and User
@@ -218,25 +316,8 @@ def main():
     plot_wins_vs_pick_scatter(df)
     plot_avg_position_per_pick(df)
     plot_position_vs_pick_scatter(df)
-    plot_avg_draft_position_per_user(df)
-    plot_draft_positions_per_user(df)
-
-# if __name__ == "__main__":
-#     main()
-
-
-picks = load_and_clean_picks()
-pos = load_and_clean_positions()
-# Merge picks and positions on Season and User
-df = pd.merge(picks, pos, on=["Season", "User"], how="inner")
-plot_avg_wins_per_pick(df)
-plot_wins_vs_pick_scatter(df)
-plot_avg_position_per_pick(df)
-plot_position_vs_pick_scatter(df)
-plot_avg_draft_position_per_user(picks)
-plot_draft_positions_per_user(picks)
-
-
-
-# Only one set of function definitions should exist above this line. The main function and main guard are already defined above.
-
+    plot_avg_draft_position_per_user(picks)
+    plot_draft_positions_per_user(picks)
+    plot_avg_victories_per_user(df)
+    plot_victories_per_user_scatter(df)
+    generate_user_summary_table(df)

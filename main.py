@@ -1,8 +1,10 @@
 """Main file to run whole pipeline."""
 from src.read_positions.read_positions import extract_positions
+from src.generate_analysis.generate_analysis import run_analysis_pipeline
+
 from pathlib import Path
 
-EXTRACT_POSITONS = True
+EXTRACT_POSITONS = False
 
 def extract_positions_pipeline()->None:
     """Extracts positions from screenshots and saves them."""
@@ -15,6 +17,7 @@ def extract_positions_pipeline()->None:
 def main() -> None:
     if EXTRACT_POSITONS:
         extract_positions_pipeline()
+    run_analysis_pipeline()
 
 
 if __name__ == "__main__":
