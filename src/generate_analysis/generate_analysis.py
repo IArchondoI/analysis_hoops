@@ -286,9 +286,9 @@ def generate_user_summary_table(df: pd.DataFrame, out_path: str = "Output/user_s
         .agg(
             times_in_playoffs=("Position", lambda x: (x <= 8).sum()),
             times_played=("Season", "count"),
-            win_percentage=("Win_Percentage", "mean"),
             total_wins=("W", "sum"),
             total_losses=("L", "sum"),
+            win_percentage=("Win_Percentage", "mean"),
             average_score=("Average", "mean"),
             highest_score=("Average", "max"),
             lowest_score=("Average", "min"),
@@ -302,6 +302,26 @@ def generate_user_summary_table(df: pd.DataFrame, out_path: str = "Output/user_s
     # Round win_percentage and average_score to 1 decimal place
     summary["win_percentage"] = summary["win_percentage"].round(1)
     summary["average_score"] = summary["average_score"].round(1)
+
+    # Add total_games_played as the sum of total_wins and total_losses
+    summary["total_games_played"] = summary["total_wins"] + summary["total_losses"]
+
+    # Reorder columns to the desired order
+    column_order = [
+        "User",
+        "times_in_playoffs",
+        "times_played",
+        "total_games_played",
+        "win_percentage",
+        "total_wins",
+        "total_losses",
+        "average_score",
+        "highest_score",
+        "lowest_score",
+        "highest_position",
+        "lowest_position",
+    ]
+    summary = summary[column_order]
 
     summary.to_csv(out_path, index=False)
 
