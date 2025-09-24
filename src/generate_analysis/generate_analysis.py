@@ -312,9 +312,9 @@ def generate_user_summary_table(df: pd.DataFrame, out_path: str = "Output/user_s
         "times_in_playoffs",
         "times_played",
         "total_games_played",
-        "win_percentage",
         "total_wins",
         "total_losses",
+        "win_percentage",
         "average_score",
         "highest_score",
         "lowest_score",
@@ -324,6 +324,53 @@ def generate_user_summary_table(df: pd.DataFrame, out_path: str = "Output/user_s
     summary = summary[column_order]
 
     summary.to_csv(out_path, index=False)
+
+# Ensure the function is defined before calling it
+def plot_position_heatmap(df: pd.DataFrame, out_path: str = "Output/position_heatmap.png") -> None:
+    """Generate a heatmap of positions by user and season."""
+    # Pivot the data to create a matrix of Users (rows) x Seasons (columns)
+    heatmap_data = df.pivot(index="User", columns="Season", values="Position")
+
+    # Normalize positions per season for coloring (reverse shading: better positions darker)
+    normalized_data = heatmap_data.rank(axis=0, method="min", ascending=True)  # Reverse the shading logic
+
+    plt.figure(figsize=(12, 8))
+    ax = sns.heatmap(
+        normalized_data,
+        annot=heatmap_data,
+        fmt=".0f",
+        cmap="Blues",  # Use the standard blue colormap for reversed logic
+        linewidths=0.5,
+        linecolor="lightgray",
+        cbar=False,  # Remove the color legend
+        mask=heatmap_data.isnull(),  # Black squares for missing data
+    )
+
+    # Customize annotations for text color
+    for text in ax.texts:
+        value = int(text.get_text()) if text.get_text().isdigit() else None
+        if value is not None:
+            if value <= 8:
+                text.set_color("green")
+                text.set_fontweight("bold")
+            else:
+                text.set_color("white")  # White for positions worse than 12
+        
+    # Set axis labels and title
+    ax.set_title("Evolución año a año", fontsize=16, fontweight="bold")
+    ax.set_xlabel("")  # Remove the default x-axis label
+    ax.set_ylabel("", fontsize=14, fontweight="bold")
+
+    # Adjust season labels to be on top and vertical
+    ax.xaxis.set_label_position("top")
+    ax.xaxis.tick_top()
+    plt.xticks(rotation=90, ha="center", fontsize=12)
+    plt.yticks(fontsize=12)
+
+    plt.tight_layout()
+    plt.savefig(out_path)
+    plt.close()
+
 
 # Update the main function to include the new table generation
 def run_analysis_pipeline():
@@ -341,3 +388,6 @@ def run_analysis_pipeline():
     plot_avg_victories_per_user(df)
     plot_victories_per_user_scatter(df)
     generate_user_summary_table(df)
+    plot_position_heatmap(df)  # New heatmap function
+
+
