@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import statsmodels.api as sm
 import re
+import matplotlib.font_manager as fm
 
 
 def load_and_clean_picks() -> pd.DataFrame:
@@ -28,6 +29,19 @@ def load_and_clean_positions() -> pd.DataFrame:
 
 
 
+def apply_graph_styling(ax):
+    """Apply consistent styling to graphs."""
+    # Remove graph titles entirely
+    ax.set_title("", fontsize=0)
+
+    # Set font to Raleway globally
+    raleway_path = fm.findfont(fm.FontProperties(family="Raleway"))
+    if raleway_path:
+        plt.rcParams["font.family"] = "Raleway"
+    else:
+        print("Raleway font not found. Using default font.")
+
+
 def plot_avg_wins_per_pick(df: pd.DataFrame, out_path: str = "Output/avg_wins_per_pick.png") -> None:
     """Plot average number of wins per draft order as a bar plot."""
     avg_wins_per_pick = df.groupby("Pick")["W"].mean().reset_index()
@@ -36,13 +50,13 @@ def plot_avg_wins_per_pick(df: pd.DataFrame, out_path: str = "Output/avg_wins_pe
     # Remove box (spines)
     for spine in ax.spines.values():
         spine.set_visible(False)
-    # Bold and enlarge title and labels
-    ax.set_title("Average Number of Wins per Draft Order", fontsize=20, fontweight="bold")
+    # Bold and enlarge labels
     ax.set_xlabel("Draft Order (Pick Number)", fontsize=16, fontweight="bold")
     ax.set_ylabel("Average Wins", fontsize=16, fontweight="bold")
     ax.tick_params(axis='both', labelsize=13)
+    apply_graph_styling(ax)
     plt.tight_layout()
-    plt.savefig(out_path)
+    plt.savefig(out_path, bbox_inches="tight")
     plt.close()
 
 
@@ -64,10 +78,9 @@ def plot_wins_vs_pick_scatter(df: pd.DataFrame, out_path: str = "Output/wins_vs_
         spine.set_visible(False)
     # Set ticks for each draft order
     ax.set_xticks(unique_picks)
-    # Bold and enlarge title and labels
-    ax.set_title("Wins by Draft Order (Disaggregated by Season)", fontsize=20, fontweight="bold")
-    ax.set_xlabel("Draft Order (Pick Number)", fontsize=16, fontweight="bold")
-    ax.set_ylabel("Wins", fontsize=16, fontweight="bold")
+    # Bold and enlarge labels
+    ax.set_xlabel("Pick", fontsize=16, fontweight="bold")
+    ax.set_ylabel("Victorias", fontsize=16, fontweight="bold")
     ax.tick_params(axis='both', labelsize=13)
     # Adjust legend
     handles, labels = ax.get_legend_handles_labels()
@@ -81,8 +94,9 @@ def plot_wins_vs_pick_scatter(df: pd.DataFrame, out_path: str = "Output/wins_vs_
             new_labels.append(l)
             seen.add(l)
     ax.legend(new_handles, new_labels, title="Season", bbox_to_anchor=(1.05, 1), loc="upper left")
+    apply_graph_styling(ax)
     plt.tight_layout()
-    plt.savefig(out_path)
+    plt.savefig(out_path, bbox_inches="tight")
     plt.close()
 
 
@@ -95,10 +109,10 @@ def plot_avg_position_per_pick(df: pd.DataFrame, out_path: str = "Output/avg_pos
     for spine in ax.spines.values():
         spine.set_visible(False)
     # Bold and enlarge title and labels
-    ax.set_title("Average League Position per Draft Order", fontsize=20, fontweight="bold")
     ax.set_xlabel("Draft Order (Pick Number)", fontsize=16, fontweight="bold")
     ax.set_ylabel("Average League Position", fontsize=16, fontweight="bold")
     ax.tick_params(axis='both', labelsize=13)
+    apply_graph_styling(ax)
     plt.tight_layout()
     plt.savefig(out_path)
     plt.close()
@@ -126,9 +140,8 @@ def plot_position_vs_pick_scatter(df: pd.DataFrame, out_path: str = "Output/posi
     for spine in ax.spines.values():
         spine.set_visible(False)
     # Bold and enlarge title and labels
-    ax.set_title("League Position by Draft Order (Disaggregated by Season)", fontsize=20, fontweight="bold")
-    ax.set_xlabel("Draft Order (Pick Number)", fontsize=16, fontweight="bold")
-    ax.set_ylabel("League Position", fontsize=16, fontweight="bold")
+    ax.set_xlabel("Pick", fontsize=16, fontweight="bold")
+    ax.set_ylabel("Posición", fontsize=16, fontweight="bold")
     ax.tick_params(axis='both', labelsize=13)
     # Adjust legend
     handles, labels = ax.get_legend_handles_labels()
@@ -142,6 +155,7 @@ def plot_position_vs_pick_scatter(df: pd.DataFrame, out_path: str = "Output/posi
             new_labels.append(l)
             seen.add(l)
     ax.legend(new_handles, new_labels, title="Season", bbox_to_anchor=(1.05, 1), loc="upper left")
+    apply_graph_styling(ax)
     plt.tight_layout()
     plt.savefig(out_path)
     plt.close()
@@ -157,7 +171,6 @@ def plot_avg_draft_position_per_user(df: pd.DataFrame, out_path: str = "Output/a
     for spine in ax.spines.values():
         spine.set_visible(False)
     # Bold and enlarge title and labels
-    ax.set_title("Average Draft Position per User", fontsize=20, fontweight="bold")
     ax.set_xlabel("User", fontsize=16, fontweight="bold")
     ax.set_ylabel("Average Draft Position", fontsize=16, fontweight="bold")
     ax.tick_params(axis='both', labelsize=13)
@@ -189,8 +202,7 @@ def plot_draft_positions_per_user(df: pd.DataFrame, out_path: str = "Output/draf
     for spine in ax.spines.values():
         spine.set_visible(False)
     # Bold and enlarge title and labels
-    ax.set_title("¿Es el bol injusto?", fontsize=20, fontweight="bold")
-    ax.set_xlabel("Usuario", fontsize=16, fontweight="bold")
+    ax.set_xlabel("", fontsize=16, fontweight="bold")
     ax.set_ylabel("Posición de Pickeo", fontsize=16, fontweight="bold")
     ax.tick_params(axis='both', labelsize=13)
     plt.xticks(rotation=90, ha="center")
@@ -221,7 +233,6 @@ def plot_avg_victories_per_user(df: pd.DataFrame, out_path: str = "Output/avg_vi
     for spine in ax.spines.values():
         spine.set_visible(False)
     # Bold and enlarge title and labels
-    ax.set_title("Average Victories per User", fontsize=20, fontweight="bold")
     ax.set_xlabel("User", fontsize=16, fontweight="bold")
     ax.set_ylabel("Average Victories", fontsize=16, fontweight="bold")
     ax.tick_params(axis='both', labelsize=13)
@@ -250,9 +261,8 @@ def plot_victories_per_user_scatter(df: pd.DataFrame, out_path: str = "Output/vi
     for spine in ax.spines.values():
         spine.set_visible(False)
     # Bold and enlarge title and labels
-    ax.set_title("Victories per User (Disaggregated by Season)", fontsize=20, fontweight="bold")
-    ax.set_xlabel("User", fontsize=16, fontweight="bold")
-    ax.set_ylabel("Victories", fontsize=16, fontweight="bold")
+    ax.set_xlabel("", fontsize=16, fontweight="bold")
+    ax.set_ylabel("Victorias", fontsize=16, fontweight="bold")
     ax.tick_params(axis='both', labelsize=13)
     plt.xticks(rotation=90, ha="center")
     # Adjust legend
